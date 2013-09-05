@@ -1,0 +1,26 @@
+{
+  "name": "bower-breeze",
+  "version": "1.4.1",
+  "homepage": "https://github.com/chiefy/bower-breeze",
+  "description": "BreezeJS client-side library for consumption by bower",
+  "keywords": [
+    "breeze",
+    "breezejs",
+    "microsoft",
+    "odata",
+    "rest",
+    "restful",
+    "model"
+  ],
+  "authors": [
+    "IdeaBlade"
+  ],
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ]
+}
