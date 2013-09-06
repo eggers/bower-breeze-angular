@@ -13,6 +13,7 @@
     "model"
   ],
   "authors": [
+    "Jay Traband",
     "IdeaBlade"
   ],
   "license": "MIT",
@@ -22,5 +23,8 @@
     "bower_components",
     "test",
     "tests"
-  ]
+  ],
+  "dependencies": {
+    "q": "~0.9.7"
+  }
 }
