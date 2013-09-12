@@ -3,4 +3,8 @@ bower-breeze
 
 Just the JS for using BreezeJS client-side with bower.
 
-Currently I've only tagged one release: 1.4.1. If you want/need another one, please submit an issue.
+I've also included the 'labs' plugins for BreezeJS.
+
+Tags available:
+ - 1.4.1
+ - 1.4.2
