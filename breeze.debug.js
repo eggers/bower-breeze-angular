@@ -21,7 +21,7 @@
 
 })(function () {  
     var breeze = {
-        version: "1.4.4",
+        version: "1.4.5",
         metadataVersion: "1.0.5"
     };
 
@@ -7193,7 +7193,13 @@ var EntityType = (function () {
         }
         this.complexProperties && this.complexProperties.forEach(function (cp) {
             var ctInstance = instance.getProperty(cp.name);
-            cp.dataType._initializeInstance(ctInstance);
+            if (Array.isArray(ctInstance)) {
+                ctInstance.forEach(function (ctInst) {
+                    cp.dataType._initializeInstance(ctInst);
+                });
+            } else {
+                cp.dataType._initializeInstance(ctInstance);
+            }
         });
         // not needed for complexObjects
         if (instance.entityAspect) {
@@ -10440,23 +10446,19 @@ var Predicate = (function () {
     **/
 
     function argsToPredicates(argsx) {
-        assertParam(argsx,'arguments').hasProperty('length').check();
-        var args = argsx;
+        var args;
         if (argsx.length === 1 && Array.isArray(argsx[0])) {
             args = argsx[0];
-        } 
-        // convert Arguments to Array
-        args = __arraySlice(args);
-        // remove any null or undefined elements from the array.
-        if(Array.isArray(args)) {
-            args = args.filter(function(arg){
-                return !! arg;
-            });
+        } else {
+            var args = __arraySlice(argsx);
             if (!Predicate.isPredicate(args[0])) {
                 args = [Predicate.create(args)];
             }
         }
-        return args;        
+        // remove any null or undefined elements from the array.
+        return args.filter(function (arg) {
+            return arg != null;
+        });
     }
 
     return ctor;
@@ -13649,8 +13651,10 @@ var EntityManager = (function () {
         var fn = isClient ? getPropertyFromClientRaw : getPropertyFromServerRaw;
         var rawVal = fn(raw, dp);
         if (rawVal === undefined) return;
+        
         var oldVal;
         if (dp.isComplexProperty) {
+            if (rawVal === null) return; // rawVal may be null in nosql dbs where it was never defined for the given row.
             oldVal = target.getProperty(dp.name);
             var complexType = dp.dataType;
             var cdataProps = complexType.dataProperties;
@@ -14951,7 +14955,7 @@ breeze.AbstractDataServiceAdapter = (function () {
             var entityTypeName = MetadataStore.normalizeTypeName(km.EntityTypeName);
             return { entityTypeName: entityTypeName, tempValue: km.TempValue, realValue: km.RealValue };
         });
-        return { entities: data.Entities, keyMappings: keyMappings, XHR: data.XHR };
+        return { entities: data.Entities, keyMappings: keyMappings, httpResponse: data.httpResponse };
     };
     
     ctor.prototype.jsonResultsAdapter = new JsonResultsAdapter({
@@ -15412,13 +15416,7 @@ breeze.AbstractDataServiceAdapter = (function () {
             enumerable: true,
             configurable: true
         };
-        try {
-            Object.defineProperty(proto, propName, descr);    
-        } catch(e) {
-            // IE8 doesn't have a Object.defineProperty sham
-            // https://github.com/kriskowal/es5-shim/issues/5
-            proto[propName] = descr;
-        }
+        Object.defineProperty(proto, propName, descr);
     }
 
     function wrapPropDescription(proto, property) {
@@ -15457,13 +15455,7 @@ breeze.AbstractDataServiceAdapter = (function () {
             enumerable: propDescr.enumerable,
             configurable: true
         };
-        try {
-            Object.defineProperty(proto, property.name, newDescr);
-        } catch(e) {
-            // IE8 doesn't have a Object.defineProperty sham
-            // https://github.com/kriskowal/es5-shim/issues/5
-            proto[property.name] = newDescr;
-        }
+        Object.defineProperty(proto, property.name, newDescr);
     };
         
 
@@ -15550,11 +15542,19 @@ breeze.AbstractDataServiceAdapter = (function () {
             return this;
         };
 
-        if (Object.getPrototypeOf) {
+        if (canIsolateES5Props()) {
             isolateES5Props(proto);
         }
 
     };
+
+    function canIsolateES5Props() {
+        try {
+            return Object.getPrototypeOf && Object.defineProperty({}, 'x', {});
+        } catch (e) {
+            return false;
+        }
+    }
 
     function isolateES5Props(proto) {
         
@@ -15646,19 +15646,12 @@ breeze.AbstractDataServiceAdapter = (function () {
         
             if (prop.isScalar) {
                 if (propDescr) {
-                    var tmpDescr = {
+                    Object.defineProperty(entity, propName, {
                         enumerable: true,
                         configurable: true,
                         writable: true,
                         value: koObj
-                    };
-                    try {
-                        Object.defineProperty(entity, propName, tmpDescr);
-                    } catch(e) {
-                        // IE8 doesn't have a Object.defineProperty sham
-                        // https://github.com/kriskowal/es5-shim/issues/5
-                        entity[propName] = tmpDescr;
-                    }
+                    });
                 } else {
                     var koExt = koObj.extend({ intercept: { instance: entity, property: prop } });
                     entity[propName] = koExt;

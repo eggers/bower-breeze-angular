@@ -21,7 +21,7 @@
 
 })(function () {  
     var breeze = {
-        version: "1.4.4",
+        version: "1.4.5",
         metadataVersion: "1.0.5"
     };
 
@@ -7193,7 +7193,13 @@ var EntityType = (function () {
         }
         this.complexProperties && this.complexProperties.forEach(function (cp) {
             var ctInstance = instance.getProperty(cp.name);
-            cp.dataType._initializeInstance(ctInstance);
+            if (Array.isArray(ctInstance)) {
+                ctInstance.forEach(function (ctInst) {
+                    cp.dataType._initializeInstance(ctInst);
+                });
+            } else {
+                cp.dataType._initializeInstance(ctInstance);
+            }
         });
         // not needed for complexObjects
         if (instance.entityAspect) {
@@ -10440,23 +10446,19 @@ var Predicate = (function () {
     **/
 
     function argsToPredicates(argsx) {
-        assertParam(argsx,'arguments').hasProperty('length').check();
-        var args = argsx;
+        var args;
         if (argsx.length === 1 && Array.isArray(argsx[0])) {
             args = argsx[0];
-        } 
-        // convert Arguments to Array
-        args = __arraySlice(args);
-        // remove any null or undefined elements from the array.
-        if(Array.isArray(args)) {
-            args = args.filter(function(arg){
-                return !! arg;
-            });
+        } else {
+            var args = __arraySlice(argsx);
             if (!Predicate.isPredicate(args[0])) {
                 args = [Predicate.create(args)];
             }
         }
-        return args;        
+        // remove any null or undefined elements from the array.
+        return args.filter(function (arg) {
+            return arg != null;
+        });
     }
 
     return ctor;
@@ -13649,8 +13651,10 @@ var EntityManager = (function () {
         var fn = isClient ? getPropertyFromClientRaw : getPropertyFromServerRaw;
         var rawVal = fn(raw, dp);
         if (rawVal === undefined) return;
+        
         var oldVal;
         if (dp.isComplexProperty) {
+            if (rawVal === null) return; // rawVal may be null in nosql dbs where it was never defined for the given row.
             oldVal = target.getProperty(dp.name);
             var complexType = dp.dataType;
             var cdataProps = complexType.dataProperties;
