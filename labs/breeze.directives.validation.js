@@ -1,7 +1,7 @@
 ﻿/* 
  * Breeze Angular directives
  *
- *  v.1.0
+ *  v.1.3.2
  *
  *  Usage:
  *     Make this module a dependency of your app module:
@@ -34,53 +34,51 @@
     *   When within a repeater where scope is an entity:
     *     <input data-ng-model='title' data-z-validate />
     *
-    *   Required indicator applied if the bound data property name
-    *   is a member of the "required" hash of the bound entity type.
-    *   The "required" hash is not native to the Breeze EntityType;
-    *   Typically you add it in your model setup code.
+    *   Required indicator applied if the bound data property
+    *   has a required validator. A required validator is a validator 
+    *   which has an validator.context.isRequired == true property (or is named 'required')
+    *   See private `getRequiredPropertiesForEntityType`
     *   
     *   Learn more at http://www.breezejs.com/breeze-labs/breezedirectivesvalidationjs
     */
     module.directive('zValidate', ['zDirectivesConfig', zValidate]);
-    
+
     function zValidate(config) {
         var directive = {
             link: link,
             restrict: 'A'
         };
+
         return directive;
 
         function link(scope, element, attrs) {
-            var info = getInfo(scope, attrs);
+            // Use only features defined in Angular's jqLite
+            var valTemplate = config.zValidateTemplate;
+            var decorator = angular.element('<span class="z-decorator"></span>');
+            element.after(decorator);
+            
+            // unwrap bound elements
+            var domEl = element[0]; 
+            decorator = decorator[0];
+            
+            // get validation info for bound element and entity property
+            var info = getInfo(scope, attrs); 
+         
             scope.$watch(info.getValErrs, valErrsChanged);
 
             function valErrsChanged(newValue) {
+                
                 // HTML5 custom validity
                 // http://dev.w3.org/html5/spec-preview/constraints.html#the-constraint-validation-api
-                var el = element[0]; // unwrap 'jQuery' element
-                
-                setRequired(element, info);
-
-                if (el.setCustomValidity) {
-                    el.setCustomValidity(newValue);
-                    //return; /* only works in HTML 5. Maybe should throw instead. */
+                if (domEl.setCustomValidity) {
+                    /* only works in HTML 5. Maybe should throw if not available. */
+                    domEl.setCustomValidity(newValue);
                 }
                 
-                // Add/remove the error message HTML (errEl) and styling 
-                // errEl, if it exists, is the first sibling of this element with an 'invalid' class
-                var errEl = element.nextAll('.invalid').first();
-                
-                if (newValue) {
-                    var html = config.zValidateTemplate.replace(/%error%/, newValue);
-                    if (errEl.length) {
-                        errEl.replaceWith(html);
-                    } else {
-                        errEl = angular.element(html);
-                        element.after(errEl);
-                    }
-                } else {
-                    errEl.remove();
-                } 
+                var requiredHtml = getRequiredHtml(info);
+                var errorHtml = newValue ? valTemplate.replace(/%error%/, newValue) : "";
+
+                decorator.innerHTML = (!!requiredHtml || !!errorHtml) ? requiredHtml + errorHtml : "";
             }
         }
 
@@ -91,9 +89,9 @@
             var valPath = attrs.zValidate;
 
             if (!ngModel && !valPath) { // need some path info from attrs
-                return { getValErrs: function() { return ''; } }; //noop                
+                return { getValErrs: function () { return ''; } }; //noop                
             }
-            
+
             getEntityAndPropertyPaths();
 
             var getAspect = entityPath ? aspectFromPath : aspectFromEntity;
@@ -105,7 +103,7 @@
                 getType: getType,
                 getValErrs: createGetValErrs()
             };
-            
+
             return result;
 
             function aspectFromPath() {
@@ -117,17 +115,17 @@
 
             // Create the 'getValErrs' function that will be watched
             function createGetValErrs() {
-                return function() {
+                return function () {
                     var aspect = getAspect();
                     if (aspect) {
                         var errs = aspect.getValidationErrors(propertyPath);
                         if (errs.length) {
                             return errs
                                 // concatenate all errors into a single string
-                                .map(function(e) { return e.errorMessage; })
+                                .map(function (e) { return e.errorMessage; })
                                 .join('; ');
                         }
-                        return ''; 
+                        return '';
                     }
                     // No data bound entity yet. 
                     // Return something other than a string so that 
@@ -166,34 +164,76 @@
                 }
             }
         }
-
-        function setRequired(element, info) {
-            // Set the required indicator once ... when an entity first arrives
-            // at which point we can determine whether the data property is required
-            var el = element[0];
-            if (el.hasSetRequired) { return; } // set it already
-
-            var entityType = info.getType();
-            if (!entityType) { return; } // no entity, type is unknown, quit
-
-            // if the data property is required, add the appropriate styling and element
-            var requiredProperties = entityType.required;
-            if (requiredProperties && requiredProperties[info.propertyPath]) {
-                var reqHtml = config.zRequiredTemplate;
-                var reqEl = angular.element(reqHtml);
-                element.after(reqEl);
+        
+        // TODO: Move "required" material to a separate module
+        // because is not angular specific and could be used 
+        // in other presentation frameworks such as a custom Knockout binding
+        
+        /*
+        * getRequiredPropertiesForEntityType
+        * Returns a hash of property names of properties that are required.
+        * Creates that hash lazily and adds it to the  
+        * entityType's metadata for easier access by this directive 
+        */
+        function getRequiredPropertiesForEntityType(type) {
+            if (type.custom && type.custom.required) {
+                return type.custom.required;
             }
 
-            el.hasSetRequired = true;  // don't set again
+            // Don't yet know the required properties for this type
+            // Find out now
+            if (!type.custom) {
+                type.custom = {};
+            }
+            var required = {};
+            type.custom.required = required;
+            var props = type.getProperties();
+            props.forEach(function(prop) {
+                var vals = prop.validators;
+                for (var i = vals.length; i--;) {
+                    var val = vals[i];
+                    // Todo: add the 'isRequired' property to breeze.Validator.required validator
+                    if (val.context.isRequired || val.name === 'required') {
+                        required[prop.name] = true;
+                        break;
+                    }
+                }
+            });
+            return required;
+        }
+
+        function getRequiredHtml(info) {
+ 
+            if (info.requiredHtml !== undefined) { return info.requiredHtml; }
+
+            // We don't know if it is required yet.
+            // When it is first bound to the entity we can determine whether the data property is required
+            // Note: Not bound until second call to the directive's link function
+            var requiredHtml = "";
+            var entityType = info.getType();
+            if (entityType) { // the bound entity is known
+                var requiredProperties = getRequiredPropertiesForEntityType(entityType);
+
+                // if the data property is required, create the html
+                if (requiredProperties[info.propertyPath]) {
+                    requiredHtml = config.zRequiredTemplate;
+                }
+                // Now we know if the requiredHtml is defined or ""
+                info.requiredHtml = requiredHtml;
+            }
+            return requiredHtml;
         }
 
     }
 
-    /* Configure the breeze directives (optional)
+    /* Configure app to use zValidate
+    *
+    *  Configure breeze directive templates
     *  
     *  zValidateTemplate: template for display of validation errors
-    * 
-    *  Usage:
+    *  zRequiredTemplate: template for display of required property indicator
+    *
+    *  Template configuarion usage:
     *      Either during the app's Angular config phase ...
     *      app.config(['zDirectivesConfigProvider', function(cfg) {
     *          cfg.zValidateTemplate =
@@ -216,7 +256,7 @@
         // The default template for indicating required fields.
         // Assumes "icon-asterisk-invalid" from bootstrap css
         this.zRequiredTemplate =
-            '<span class="icon-asterisk-invalid" title="Required">*</span>';
+            '<span class="icon-asterisk-invalid z-required" title="Required">*</span>';
 
         this.$get = function() {
             return {
@@ -225,4 +265,5 @@
             };
         };
     });
+
 })();
