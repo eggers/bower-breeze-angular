@@ -1,15 +1,9 @@
-bower-breeze
+bower-breeze-angular
 ============
 
-Just the JS for using BreezeJS client-side with bower.
+This is the same as `chiefly/bower-breeze`, but swapping out the q dependency for angular, so that we can use `ng.IPromise` instead of `Q.Promise`
 
 I've also included the 'labs' plugins for BreezeJS.
 
 Tags available:
- - 1.4.1
- - 1.4.2
- - 1.4.4
- - 1.4.5
- - 1.4.6
- - 1.4.7
  - 1.4.8
