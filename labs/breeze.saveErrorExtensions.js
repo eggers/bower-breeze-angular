@@ -22,7 +22,7 @@
  * http://opensource.org/licenses/mit-license.php
  * Author: Ward Bell
  *
- * v.1.0.1
+ * v.1.0.3
  *
  * Install:
  *   1) include this script after breeze script
@@ -39,21 +39,20 @@
  *   }
  * 
 */
-(function (definition) {
-
-    // CommonJS
-    if (typeof exports === "object") {
+(function (definition, window) {
+    if (window.breeze) {
+        definition(window.breeze);
+    } else if (typeof require === "function" && typeof exports === "object" && typeof module === "object") {
+        // CommonJS or Node
         var b = require('breeze');
         definition(b);
-    // RequireJS
-    } else if (typeof define === "function") {
+    } else if (typeof define === "function" && define["amd"] && !window.breeze) {
+        // Requirejs / AMD 
         define(['breeze'], definition);
-    // <script>
     } else {
-        definition(this.breeze);
+        throw new Error("Can't find breeze");
     }
-})
-(function() {
+}(function (breeze) {
 	'use strict';
 
     var service = {
@@ -143,4 +142,4 @@
 			});
 		})(badEntity);
 	}
-});
+}, this));

@@ -3,7 +3,7 @@
   "version": "1.4.8",
   "homepage": "https://github.com/chiefy/bower-breeze",
   "description": "BreezeJS client-side library for consumption by bower. Using ng.IPromise instead of Q.Promise.",
-  "scripts": ["./breeze.debug.js", "./labs/breeze.angular.q.js"],
+  "scripts": ["./breeze.debug.js", "./labs/breeze.angular.js", "./labs/breeze.directives.validation.js", "./labs/breeze.directives.css"],
   "keywords": [
     "breeze",
     "breezejs",
