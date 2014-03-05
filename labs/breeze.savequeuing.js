@@ -1,17 +1,17 @@
 ﻿//#region Copyright, Version, and Description
 /*
- * Copyright 2013 IdeaBlade, Inc.  All Rights Reserved.  
+ * Copyright 2014 IdeaBlade, Inc.  All Rights Reserved.  
  * Use, reproduction, distribution, and modification of this code is subject to the terms and 
  * conditions of the IdeaBlade Breeze license, available at http://www.breezejs.com/license
  *
  * Author: Ward Bell
- * Version: 1.0.1
+ * Version: 1.0.4
  * --------------------------------------------------------------------------------
  * Adds "Save Queuing" capability to new EntityManagers
  * "Save Queuing" automatically queues and defers an EntityManager.saveChanges call
  * when another save is in progress for that manager.
  *
- * Depends on Breeze (which it patches) and Q.js
+ * Depends on Breeze (which it patches) and Q.js (not for use in Angular ... yet)
  *
  * Without "Save Queuing", an EntityManager will throw an exception when
  * saveChanges is called while another save is in progress.
@@ -37,22 +37,22 @@
  * touch them at your own risk.
  */
 //#endregion
-(function (definition) {
-
-    // CommonJS
-    if (typeof exports === "object") {
+(function (definition, window) {
+    if (window.breeze && window.Q) {
+        definition(window.breeze, window.Q);
+    } else if (typeof require === "function" && typeof exports === "object" && typeof module === "object") {
+        // CommonJS or Node
         var b = require('breeze');
         var q = require('Q');
         definition(b, q);
-    // RequireJS
-    } else if (typeof define === "function") {
+    } else if (typeof define === "function" && define["amd"] && !window.breeze) {
+        // Requirejs / AMD 
         define(['breeze', 'Q'], definition);
-    // <script>
     } else {
-        definition(breeze, Q);
+        throw new Error("Can't find breeze and/or Q");
     }
-})
-(function (breeze, Q) {
+}(function (breeze, Q) {
+    'use strict';
     var EntityManager = breeze.EntityManager;
 
     /**
@@ -111,14 +111,14 @@
         var savePromise = deferredSave.promise;
         return savePromise
             .then(function () { return self.innerSaveChanges(args); })
-            .fail(function (error) { self.saveFailed(error); });
+            .then(null,function (error) { self.saveFailed(error); });
     };
 
     SaveQueuing.prototype.innerSaveChanges = function (args) {
         var self = this;
         return self.baseSaveChanges.apply(self.entityManager, args)
             .then(function (saveResult) { return self.saveSucceeded(saveResult); })
-            .fail(function (error) { self.saveFailed(error); });
+            .then(null, function (error) { self.saveFailed(error); });
     };
 
     // Default methods and Error class for initializing new saveQueuing objects
@@ -162,4 +162,4 @@
     QueuedSaveFailedError.prototype.constructor = QueuedSaveFailedError;
     //#endregion
 
-});
+}, this));
