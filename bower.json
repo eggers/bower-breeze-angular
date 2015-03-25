@@ -1,8 +1,9 @@
 {
   "name": "bower-breeze-angular",
-  "version": "1.4.14",
+  "version": "1.4.15",
   "homepage": "https://github.com/chiefy/bower-breeze",
   "description": "BreezeJS client-side library for consumption by bower. Using ng.IPromise instead of Q.Promise.",
+  "main": ["./breeze.debug.js", "./labs/breeze.angular.js", "./labs/breeze.directives.validation.js", "./labs/breeze.directives.css"],
   "scripts": ["./breeze.debug.js", "./labs/breeze.angular.js", "./labs/breeze.directives.validation.js", "./labs/breeze.directives.css"],
   "keywords": [
     "breeze",
